@@ -5,10 +5,92 @@ import { GrupoService, AsistenciaService, NotaService } from './services/GrupoSe
 import { Estudiante, Profesor, Grupo } from './types';
 
 const App: React.FC = () => {
-  const [vistaActual, setVistaActual] = useState<'estudiantes' | 'profesores' | 'grupos' | 'asistencias'>('estudiantes');
+  const [vistaActual, setVistaActual] = useState<'estudiantes' | 'profesores' | 'grupos' | 'asistencias' | 'personal'>('estudiantes');
   const [estudiantes, setEstudiantes] = useState<Estudiante[]>(EstudianteService.obtenerTodos());
   const [profesores, setProfesores] = useState<Profesor[]>(ProfesorService.obtenerTodos());
   const [grupos, setGrupos] = useState<Grupo[]>(GrupoService.obtenerTodos());
+  // No necesitamos estado local para empleados aun si usamos el servicio directamente en el render, pero seguimos el patrón
+  const [empleados, setEmpleados] = useState(EmpleadoService.obtenerTodos());
+
+  const handleMarcarEntrada = (id: string) => {
+    EmpleadoService.marcarEntrada(id);
+    setEmpleados([...EmpleadoService.obtenerTodos()]); // Forzar re-render simple
+  };
+
+  const handleMarcarSalida = (asistenciaId: string) => {
+    EmpleadoService.marcarSalida(asistenciaId);
+    setEmpleados([...EmpleadoService.obtenerTodos()]);
+  };
+
+  const renderPersonal = () => (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <h2>Gestión de Personal</h2>
+        <button style={{
+          padding: '10px 20px',
+          backgroundColor: '#27ae60',
+          color: 'white',
+          border: 'none',
+          borderRadius: '5px',
+          cursor: 'pointer'
+        }}>+ Nuevo Empleado</button>
+      </div>
+
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            <th style={{ border: '1px solid #ccc', padding: '8px' }}>Nombre</th>
+            <th style={{ border: '1px solid #ccc', padding: '8px' }}>Cargo</th>
+            <th style={{ border: '1px solid #ccc', padding: '8px' }}>Asistencia Hoy</th>
+            <th style={{ border: '1px solid #ccc', padding: '8px' }}>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {empleados.map(empleado => {
+            const asistenciaHoy = EmpleadoService.obtenerAsistenciaHoy(empleado.id);
+            return (
+              <tr key={empleado.id}>
+                <td style={{ border: '1px solid #ccc', padding: '8px' }}>
+                  <div style={{ fontWeight: 'bold' }}>{empleado.nombre} {empleado.apellido}</div>
+                  <div style={{ fontSize: '0.8em', color: '#666' }}>{empleado.email}</div>
+                </td>
+                <td style={{ border: '1px solid #ccc', padding: '8px' }}>{empleado.cargo}</td>
+                <td style={{ border: '1px solid #ccc', padding: '8px' }}>
+                  {asistenciaHoy ? (
+                    <div>
+                      <span style={{ color: 'green' }}>Entrada: {asistenciaHoy.horaEntrada}</span>
+                      {asistenciaHoy.horaSalida && <span style={{ display: 'block', color: 'blue' }}>Salida: {asistenciaHoy.horaSalida}</span>}
+                    </div>
+                  ) : (
+                    <span style={{ color: '#999' }}>No registrada</span>
+                  )}
+                </td>
+                <td style={{ border: '1px solid #ccc', padding: '8px' }}>
+                  {!asistenciaHoy ? (
+                    <button
+                      onClick={() => handleMarcarEntrada(empleado.id)}
+                      style={{ padding: '5px 10px', backgroundColor: '#3498db', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
+                    >
+                      Marcar Entrada
+                    </button>
+                  ) : !asistenciaHoy.horaSalida ? (
+                    <button
+                      onClick={() => handleMarcarSalida(asistenciaHoy.id)}
+                      style={{ padding: '5px 10px', backgroundColor: '#e67e22', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
+                    >
+                      Marcar Salida
+                    </button>
+                  ) : (
+                    <span style={{ color: 'green' }}>Jornada Completa</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 
   const renderEstudiantes = () => (
     <div>
@@ -115,15 +197,15 @@ const App: React.FC = () => {
           {estudiantes.map(estudiante => {
             const asistenciaHoy = AsistenciaService.obtenerPorFecha(new Date().toISOString().split('T')[0])
               .find(a => a.estudianteId === estudiante.id);
-            
+
             return (
               <tr key={estudiante.id}>
                 <td style={{ border: '1px solid #ccc', padding: '8px' }}>
                   {estudiante.nombre} {estudiante.apellido}
                 </td>
                 <td style={{ border: '1px solid #ccc', padding: '8px' }}>{estudiante.grupo}</td>
-                <td style={{ 
-                  border: '1px solid #ccc', 
+                <td style={{
+                  border: '1px solid #ccc',
                   padding: '8px',
                   backgroundColor: asistenciaHoy?.presente ? '#d4edda' : '#f8d7da'
                 }}>
@@ -145,9 +227,9 @@ const App: React.FC = () => {
       <h1 style={{ color: '#2c3e50', textAlign: 'center' }}>
         Sistema de Gestión Escolar - Jardín Infantil
       </h1>
-      
+
       <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
-        <button 
+        <button
           onClick={() => setVistaActual('estudiantes')}
           style={{
             padding: '10px 20px',
@@ -160,7 +242,7 @@ const App: React.FC = () => {
         >
           Estudiantes
         </button>
-        <button 
+        <button
           onClick={() => setVistaActual('profesores')}
           style={{
             padding: '10px 20px',
@@ -173,7 +255,7 @@ const App: React.FC = () => {
         >
           Profesores
         </button>
-        <button 
+        <button
           onClick={() => setVistaActual('grupos')}
           style={{
             padding: '10px 20px',
@@ -186,7 +268,7 @@ const App: React.FC = () => {
         >
           Grupos
         </button>
-        <button 
+        <button
           onClick={() => setVistaActual('asistencias')}
           style={{
             padding: '10px 20px',
@@ -199,12 +281,26 @@ const App: React.FC = () => {
         >
           Asistencias
         </button>
+        <button
+          onClick={() => setVistaActual('personal')}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: vistaActual === 'personal' ? '#3498db' : '#95a5a6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: 'pointer'
+          }}
+        >
+          RRHH
+        </button>
       </div>
 
       {vistaActual === 'estudiantes' && renderEstudiantes()}
       {vistaActual === 'profesores' && renderProfesores()}
       {vistaActual === 'grupos' && renderGrupos()}
       {vistaActual === 'asistencias' && renderAsistencias()}
+      {vistaActual === 'personal' && renderPersonal()}
     </div>
   );
 };
